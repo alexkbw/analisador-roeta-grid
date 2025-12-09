@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de Gatilhos - Roleta</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🎯 Analisador de Gatilhos</h1>
+            <p class="subtitle">Sistema de rastreamento de números cobertos na roleta</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="analise">Análise</button>
+            <button class="tab-btn" data-tab="configuracao">Configuração de Gatilhos</button>
+        </div>
+
+        <!-- Tab Análise -->
+        <div class="tab-content active" id="tab-analise">
+
+            <div class="panel">
+                <h2 class="panel-title">Histórico de Jogadas</h2>
+                <div id="tabelaContainer">
+                    <div class="empty-state">
+                        <p>Nenhuma jogada registrada ainda</p>
+                        <p class="small-text">Insira um número para começar</p>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <h2 class="panel-title">Mapa de Rastreamento</h2>
+                <div class="tracker-wrapper">
+                    <div class="tracker-container" id="trackerContainer"></div>
+                    <div class="empty-state" id="emptyState">
+                        <p>Nenhum número registrado ainda</p>
+                        <p style="font-size: 0.8rem; margin-top: 0.5rem;">Digite um número e pressione Enter ou clique
+                            em
+                            Adicionar
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="controls">
+                <input type="number" id="numeroInput" class="input" placeholder="0-36" min="0" max="36">
+                <button onclick="adicionarNumero()" class="button btn-add">Adicionar</button>
+                <button onclick="desfazer()" class="button btn-undo">Desfazer</button>
+                <button onclick="limpar()" class="button btn-clear">Limpar</button>
+            </div>
+
+        </div>
+
+        <!-- Tab Configuração -->
+        <div class="tab-content" id="tab-configuracao">
+            <div class="panel">
+                <h2 class="panel-title">Configurar Gatilhos</h2>
+                <p class="subtitle" style="margin-bottom: 1.5rem;">Defina os gatilhos e números cobertos para cada
+                    número</p>
+
+                <div class="config-controls">
+                    <input type="file" id="jsonFileInput" class="input" accept=".json" style="display: none;">
+                    <button onclick="document.getElementById('jsonFileInput').click()" class="button btn-add">Obter do
+                        JSON local</button>
+                    <select id="numeroConfig" class="input">
+                        <option value="">Selecione um número (0-36)</option>
+                    </select>
+                    <input type="text" id="gatilhoInput" class="input" placeholder="Ex: 17, 20, 0">
+                    <input type="text" id="cobertosInput" class="input"
+                        placeholder="Números cobertos (separados por vírgula)">
+                    <button onclick="salvarConfiguracao()" class="button btn-add">Salvar</button>
+                </div>
+
+                <div class="panel" style="margin-top: 1.5rem;">
+                    <h3 class="panel-title small">Configurações Atuais</h3>
+                    <div id="listaConfiguracoes"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados iniciais dos gatilhos
+        const gatilhosIniciais = {
+            33: { gatilho: "33,34,35", cobertos: [1, 20, 14, 33, 16, 24, 5, 17, 25, 2, 34, 6, 27, 13, 3, 26, 0, 35, 12, 28, 7] },
+            20: { gatilho: "17, 20, 0", cobertos: [27, 6, 34, 17, 25, 2, 21, 16, 33, 1, 20, 14, 31, 9, 19, 15, 32, 0, 26, 3, 35] },
+            19: { gatilho: "27, 7, 19", cobertos: [11, 36, 13, 27, 6, 34, 17, 22, 18, 29, 7, 28, 12, 35, 2, 21, 4, 19, 15, 32, 0] },
+            34: { gatilho: "33,34,35", cobertos: [1, 20, 14, 33, 16, 24, 5, 17, 25, 2, 34, 6, 27, 13, 3, 26, 0, 35, 12, 28, 7] },
+            16: { gatilho: "21, 16, 12", cobertos: [17, 25, 2, 21, 4, 19, 15, 1, 5, 24, 16, 33, 1, 20, 29, 7, 28, 12, 35, 3, 26] },
+            30: { gatilho: "30,31,32", cobertos: [11, 36, 13, 30, 8, 23, 10, 9, 22, 18, 31, 14, 20, 1, 0, 26, 3, 32, 15, 19, 4] },
+            36: { gatilho: "1, 3, 36", cobertos: [24, 16, 33, 1, 20, 14, 31, 28, 12, 35, 3, 26, 0, 32, 8, 30, 11, 36, 13, 27, 6] },
+            25: { gatilho: "25, 5, 22", cobertos: [6, 34, 17, 25, 2, 21, 4, 8, 23, 10, 5, 24, 16, 33, 14, 31, 9, 22, 18, 29, 7] },
+            31: { gatilho: "30,31,32", cobertos: [11, 36, 13, 30, 8, 23, 10, 9, 22, 18, 31, 14, 20, 1, 0, 26, 3, 32, 15, 19, 4] },
+            3: { gatilho: "1, 3, 36", cobertos: [24, 16, 33, 1, 20, 14, 31, 28, 12, 35, 3, 26, 0, 32, 8, 30, 11, 36, 13, 27, 6] },
+            17: { gatilho: "17, 20, 0", cobertos: [27, 6, 34, 17, 25, 2, 21, 16, 33, 1, 20, 14, 31, 9, 19, 15, 32, 0, 26, 3, 35] },
+            0: { gatilho: "17, 20, 0", cobertos: [27, 6, 34, 17, 25, 2, 21, 16, 33, 1, 20, 14, 31, 9, 19, 15, 32, 0, 26, 3, 35] },
+            12: { gatilho: "21, 16, 12", cobertos: [17, 25, 2, 21, 4, 19, 15, 1, 5, 24, 16, 33, 1, 20, 29, 7, 28, 12, 35, 3, 26] },
+            27: { gatilho: "27, 7, 19", cobertos: [11, 36, 13, 27, 6, 34, 17, 22, 18, 29, 7, 28, 12, 35, 2, 21, 4, 19, 15, 32, 0] },
+            5: { gatilho: "25, 5, 22", cobertos: [6, 34, 17, 25, 2, 21, 4, 8, 23, 10, 5, 24, 16, 33, 14, 31, 9, 22, 18, 29, 7] },
+            1: { gatilho: "1, 3, 36", cobertos: [24, 16, 33, 1, 20, 14, 31, 28, 12, 35, 3, 26, 0, 32, 8, 30, 11, 36, 13, 27, 6] },
+            32: { gatilho: "30,31,32", cobertos: [11, 36, 13, 30, 8, 23, 10, 9, 22, 18, 31, 14, 20, 1, 0, 26, 3, 32, 15, 19, 4] },
+            7: { gatilho: "27, 7, 19", cobertos: [11, 36, 13, 27, 6, 34, 17, 22, 18, 29, 7, 28, 12, 35, 2, 21, 4, 19, 15, 32, 0] },
+            35: { gatilho: "33,34,35", cobertos: [1, 20, 14, 33, 16, 24, 5, 17, 25, 2, 34, 6, 27, 13, 3, 26, 0, 35, 12, 28, 7] },
+            21: { gatilho: "21, 16, 12", cobertos: [17, 25, 2, 21, 4, 19, 15, 1, 5, 24, 16, 33, 1, 20, 29, 7, 28, 12, 35, 3, 26] },
+            22: { gatilho: "25, 5, 22", cobertos: [6, 34, 17, 25, 2, 21, 4, 8, 23, 10, 5, 24, 16, 33, 14, 31, 9, 22, 18, 29, 7] }
+        };
+
+        // Tenta carregar do localStorage
+        const savedGatilhos = localStorage.getItem('gatilhosIniciais');
+        let gatilhos;
+        const resultados = [];
+
+        if (savedGatilhos) {
+            gatilhos = JSON.parse(savedGatilhos);
+        } else {
+            gatilhos = { ...gatilhosIniciais };
+        }
+        let jogadas = [];
+        let numerosCobertosAtivos = [];
+
+        // Inicializar tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.tab;
+
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                btn.classList.add('active');
+                document.getElementById('tab-' + tabId).classList.add('active');
+
+                if (tabId === 'configuracao') {
+                    carregarConfiguracoes();
+                }
+            });
+        });
+
+        // Manipular importação de JSON
+        document.getElementById('jsonFileInput').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                try {
+                    const jsonData = JSON.parse(event.target.result);
+                    importarGatilhosDoJSON(jsonData);
+                    alert('Gatilhos importados com sucesso do JSON!');
+                    carregarConfiguracoes();
+                } catch (error) {
+                    alert('Erro ao ler o JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = ''; // Limpar o input para permitir selecionar o mesmo arquivo novamente
+        });
+
+        function importarGatilhosDoJSON(jsonData) {
+            gatilhos = {};
+            for (const numeroStr in jsonData) {
+                const numero = parseInt(numeroStr);
+                const dados = jsonData[numeroStr];
+
+                // Usar os números do "horário" como cobertos
+                const numerosHorario = dados.horário?.números || [];
+                const gatilhoArray = dados.horário?.gatilho || [];
+                const gatilhoStr = gatilhoArray.join(', ');
+
+                gatilhos[numero] = {
+                    gatilho: gatilhoStr || '0',
+                    cobertos: numerosHorario
+                };
+            }
+        }
+
+        // Preencher select de números
+        const selectNumero = document.getElementById('numeroConfig');
+        for (let i = 0; i <= 36; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            selectNumero.appendChild(option);
+        }
+
+        selectNumero.addEventListener('change', function () {
+            const numero = parseInt(this.value);
+            if (gatilhos[numero]) {
+                document.getElementById('gatilhoInput').value = gatilhos[numero].gatilho;
+                document.getElementById('cobertosInput').value = gatilhos[numero].cobertos.join(',');
+            } else {
+                document.getElementById('gatilhoInput').value = '0';
+                document.getElementById('cobertosInput').value = '';
+            }
+        });
+
+        function adicionarNumero() {
+            const input = document.getElementById('numeroInput');
+            const numero = parseInt(input.value);
+
+            if (isNaN(numero) || numero < 0 || numero > 36) {
+                alert('Digite um número válido entre 0 e 36');
+                return;
+            }
+
+            const config = gatilhos[numero];
+            let acertou = false;
+
+            if (numerosCobertosAtivos.length > 0 && numerosCobertosAtivos.includes(numero)) {
+                acertou = true;
+                resultados.push(true);
+            }else {
+                resultados.push(false);
+            }
+
+            if (config && config.cobertos) {
+                numerosCobertosAtivos = config.cobertos;
+            } else {
+                numerosCobertosAtivos = [];
+            }
+
+            const jogada = {
+                id: jogadas.length + 1,
+                numero: numero,
+                gatilho: config ? config.gatilho : '0',
+                cobertos: config ? config.cobertos : [],
+                acertou: acertou
+            };
+
+            jogadas.push(jogada);
+            input.value = '';
+            input.focus();
+            atualizarInterface();
+
+        }
+
+        function desfazer() {
+            if (jogadas.length === 0) return;
+            jogadas.pop();
+
+            if (jogadas.length > 0) {
+                const ultimaJogada = jogadas[jogadas.length - 1];
+                const config = gatilhos[ultimaJogada.numero];
+                if (config && config.cobertos) {
+                    numerosCobertosAtivos = config.cobertos;
+                } else {
+                    numerosCobertosAtivos = [];
+                }
+            } else {
+                numerosCobertosAtivos = [];
+            }
+
+            atualizarInterface();
+        }
+
+        function limpar() {
+            if (jogadas.length === 0) return;
+            if (confirm('Deseja limpar todo o histórico?')) {
+                jogadas = [];
+                numerosCobertosAtivos = [];
+                atualizarInterface();
+            }
+        }
+
+        function atualizarInterface() {
+            atualizarEstatisticas();
+            atualizarTabela();
+            renderizarTracker();
+        }
+
+        function atualizarEstatisticas() {
+            // Estatísticas foram removidas
+        }
+
+        function atualizarTabela() {
+            const container = document.getElementById('tabelaContainer');
+
+            if (jogadas.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>Nenhuma jogada registrada ainda</p>
+                        <p class="small-text">Insira um número para começar</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Gatilho</th>
+                            <th>Cobertos</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            jogadas.slice().forEach((jogada, index) => {
+                const statusText = jogada.acertou ? '✓ ACERTOU' : '-';
+                const cobertosList = jogada.cobertos.length > 0 ? jogada.cobertos.join(',') : '-';
+                
+                // Se a PRÓXIMA jogada acertou, destaca esta célula de Cobertos
+                const proximaJogadaAcertou = (index < jogadas.length - 1) && jogadas[index + 1].acertou;
+                const cobertosCellClass = proximaJogadaAcertou ? 'class="cobertos-acerto"' : '';
+
+                html += `
+                    <tr>
+                        <td class="numero-cell">${jogada.numero}</td>
+                        <td>${jogada.gatilho}</td>
+                        <td ${cobertosCellClass}>${cobertosList}</td>
+                        <td>${statusText}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function salvarConfiguracao() {
+            const numero = parseInt(document.getElementById('numeroConfig').value);
+            const gatilho = document.getElementById('gatilhoInput').value.trim();
+            const cobertosStr = document.getElementById('cobertosInput').value.trim();
+
+            if (isNaN(numero)) {
+                alert('Selecione um número válido');
+                return;
+            }
+
+            if (!gatilho) {
+                alert('Digite o gatilho');
+                return;
+            }
+
+            let cobertos = [];
+            if (cobertosStr) {
+                cobertos = cobertosStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+            }
+
+            gatilhos[numero] = {
+                gatilho: gatilho,
+                cobertos: cobertos
+            };
+
+            document.getElementById('gatilhoInput').value = '';
+            document.getElementById('cobertosInput').value = '';
+            document.getElementById('numeroConfig').value = '';
+
+            carregarConfiguracoes();
+            localStorage.setItem('gatilhosIniciais', JSON.stringify(gatilhos));
+            alert('Configuração salva com sucesso!');
+        }
+
+        function carregarConfiguracoes() {
+            const container = document.getElementById('listaConfiguracoes');
+            let html = '<div class="config-list">';
+
+            for (let i = 0; i <= 36; i++) {
+                if (gatilhos[i]) {
+                    html += `
+                        <div class="config-item">
+                            <span class="config-numero">${i}</span>
+                            <span class="config-gatilho">${gatilhos[i].gatilho}</span>
+                            <span class="config-gatilho">${gatilhos[i].cobertos.join(', ')}</span>
+                            <button onclick="removerConfiguracao(${i})" class="btn-remove">×</button>
+                        </div>
+                    `;
+                }
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function removerConfiguracao(numero) {
+            if (confirm(`Remover configuração do número ${numero}?`)) {
+                delete gatilhos[numero];
+                localStorage.setItem('gatilhosIniciais', JSON.stringify(gatilhos));
+                carregarConfiguracoes();
+            }
+        }
+
+        // Renderizar o tracker com grid 6x20
+        function renderizarTracker() {
+            trackerContainer.innerHTML = '';
+
+            if (resultados.length === 0) {
+                emptyState.style.display = 'block';
+                trackerContainer.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            trackerContainer.style.display = 'grid';
+            trackerContainer.style.gridTemplateColumns = 'repeat(20, 22px)';
+            trackerContainer.style.gridTemplateRows = 'repeat(6, 22px)';
+            trackerContainer.style.gap = '0.25rem';
+            trackerContainer.style.overflowX = 'auto';
+            trackerContainer.style.overflowY = 'hidden';
+            trackerContainer.style.minHeight = '160px';
+            trackerContainer.style.padding = '0.75rem';
+
+            // Inicializa matriz 6x20
+            const MAX_LINHAS = 6;
+            const MAX_COLUNAS = 20;
+            const grid = Array(MAX_LINHAS).fill(null).map(() => Array(MAX_COLUNAS).fill(null));
+
+            let colunaAtual = 0;
+            let linhaAtual = 0;
+
+            // Preenche o grid
+            for (let i = 0; i < resultados.length; i++) {
+                const resultado = resultados[i];
+
+                // Se for o primeiro resultado, adiciona na primeira posição
+                if (i === 0) {
+                    grid[linhaAtual][colunaAtual] = resultado;
+                } else {
+                    const resultadoAnterior = resultados[i - 1];
+
+                    // Se o resultado é igual ao anterior, preenche para baixo
+                    if (resultado === resultadoAnterior) {
+                        linhaAtual++;
+
+                        // Se chegou ao fim da coluna, vai para a próxima coluna
+                        if (linhaAtual >= MAX_LINHAS) {
+                            colunaAtual++;
+                            linhaAtual = 0;
+                        }
+                    } else {
+                        // Se o resultado é diferente, vai para a próxima coluna
+                        colunaAtual++;
+                        linhaAtual = 0;
+                    }
+
+                    // Adiciona o resultado na posição calculada (se ainda houver espaço)
+                    if (colunaAtual < MAX_COLUNAS) {
+                        grid[linhaAtual][colunaAtual] = resultado;
+                    }
+                }
+            }
+
+            // Renderiza o grid visualmente
+            for (let l = 0; l < MAX_LINHAS; l++) {
+                for (let c = 0; c < MAX_COLUNAS; c++) {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.style.width = '22px';
+                    cellDiv.style.height = '22px';
+                    cellDiv.style.aspectRatio = '1 / 1';
+                    cellDiv.style.borderRadius = '50%';
+                    cellDiv.style.display = 'flex';
+                    cellDiv.style.alignItems = 'center';
+                    cellDiv.style.justifyContent = 'center';
+                    cellDiv.style.flexShrink = '0';
+
+                    const resultado = grid[l][c];
+
+                    if (resultado !== null) {
+                        if (resultado === true) {
+                            cellDiv.style.backgroundColor = '#4CAF50'; // Verde
+                        } else {
+                            cellDiv.style.backgroundColor = '#f44336'; // Vermelho
+                        }
+                    }
+
+                    trackerContainer.appendChild(cellDiv);
+                }
+            }
+        }
+
+        
+
+
+
+        // Enter para adicionar
+        document.getElementById('numeroInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') adicionarNumero();
+        });
+
+
+
+        // Inicializar
+       
+       
+        atualizarInterface();
+        carregarConfiguracoes();
+    </script>
+</body>
+
+</html>
